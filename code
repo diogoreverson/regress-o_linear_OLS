@@ -1,0 +1,132 @@
+##################################################################################
+#                 INSTALAÇÃO E CARREGAMENTO DE PACOTES NECESSÁRIOS               #
+##################################################################################
+#Pacotes utilizados
+pacotes <- c("plotly","tidyverse","ggrepel","fastDummies","knitr","kableExtra",
+             "splines","reshape2","PerformanceAnalytics","metan","correlation",
+             "see","ggraph","nortest","rgl","car","olsrr","jtools","ggstance",
+             "magick","cowplot","beepr","Rcpp")
+
+if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
+  instalador <- pacotes[!pacotes %in% installed.packages()]
+  for(i in 1:length(instalador)) {
+    install.packages(instalador, dependencies = T)
+    break()}
+  sapply(pacotes, require, character = T) 
+} else {
+  sapply(pacotes, require, character = T) 
+}
+
+
+##################################################################################
+#                               REGRESSÃO LINEAR SIMPLES                         #
+#                       EXEMPLO 01 - CARREGAMENTO DA BASE DE DADOS               #
+##################################################################################
+
+#Listar os arquivos do nosso project
+list.files()
+
+#Carregando a base de dados
+load(file = "tempodist.RData")
+
+#################################################################################
+#                 OBSERVANDO OS DADOS CARREGADOS DO DATASET tempodist           #
+#################################################################################
+tempodist %>%
+  kable() %>%
+  kable_styling(bootstrap_options = "striped",
+                full_width = F,
+                font_size = 22)
+
+#Visualizando as observações e as especificações referentes às variáveis do dataset
+glimpse(tempodist) 
+
+#Estatísticas univariadas
+summary(tempodist)
+
+#################################################################################
+#                             GRÁFICO DE DISPERSÃO                              #
+#################################################################################
+ggplotly(
+  ggplot(tempodist, aes(x = distancia, y = tempo)) +
+    geom_point(color = "#39568CFF", size = 2.5) +
+    geom_smooth(aes(color = "Fitted Values"),
+                method = "lm", se = F, size = 2) +
+    xlab("Distância") +
+    ylab("Tempo") +
+    scale_color_manual("Legenda:",
+                       values = "grey50") +
+    theme_classic()
+)
+
+#################################################################################
+#            MODELAGEM DE UMA REGRESSÃO LINEAR SIMPLES PARA O EXEMPLO 01        #
+#################################################################################
+#Estimando o modelo
+modelo_tempodist <- lm(formula = tempo ~ distancia,
+                       data = tempodist)
+
+#Observando os parâmetros do modelo_tempodist
+summary(modelo_tempodist)
+
+#Outras maneiras de apresentar os outputs do modelo
+#função summ do pacote jtools
+summ(modelo_tempodist, confint = T, digits = 4, ci.width = .95)
+export_summs(modelo_tempodist, scale = F, digits = 4)
+
+#Salvando fitted values (variável yhat) e residuals (variável erro) no dataset
+tempodist$yhat <- modelo_tempodist$fitted.values
+tempodist$erro <- modelo_tempodist$residuals
+
+#Visualizando a base de dados com as variáveis yhat e erro
+tempodist %>%
+  select(tempo, distancia, yhat, erro) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = "striped", 
+                full_width = F, 
+                font_size = 22)
+
+#Gráfico didático para visualizar o conceito de R²
+ggplotly(
+  ggplot(tempodist, aes(x = distancia, y = tempo)) +
+    geom_point(color = "#39568CFF", size = 2.5) +
+    geom_smooth(aes(color = "Fitted Values"),
+                method = "lm", se = F, size = 2) +
+    geom_hline(yintercept = 30, color = "grey50", size = .5) +
+    geom_segment(aes(color = "Ychapéu - Ymédio", x = distancia, xend = distancia,
+                     y = yhat, yend = mean(tempo)), size = 0.7, linetype = 2) +
+    geom_segment(aes(color = "Erro = Y - Ychapéu", x = distancia, xend = distancia,
+                     y = tempo, yend = yhat), size = 0.7, linetype = 3) +
+    labs(x = "Distância",
+         y = "Tempo") +
+    scale_color_manual("Legenda:",
+                       values = c("#55C667FF", "grey50", "#440154FF")) +
+    theme_classic()
+)
+
+#Cálculo manual do R²
+R2 <- (sum((tempodist$yhat - mean(tempodist$tempo))^2))/
+      ((sum((tempodist$yhat - mean(tempodist$tempo))^2)) + (sum((tempodist$erro)^2)))
+
+round(R2, digits = 4)
+
+#coeficiente de ajuste (R²) é a correlação ao quadrado
+cor(tempodist[1:2])
+
+#Modelo auxiliar para mostrar R² igual a 100% (para fins didáticos)
+modelo_auxiliar <- lm(formula = yhat ~ distancia, #note que aqui o yhat é a dependente
+                   data = tempodist)
+summary(modelo_auxiliar)
+
+#Gráfico mostrando o perfect fit
+my_plot <- 
+  ggplot(tempodist, aes(x = distancia, y = yhat)) +
+  geom_point(color = "#39568CFF", size = 5) +
+  geom_smooth(aes(color = "Fitted Values"),
+              method = "lm", se = F, size = 2) +
+  labs(x = "Distância",
+       y = "Tempo") +
+  scale_color_manual("Legenda:",
+                     values = "grey50") +
+  theme_cowplot()
+my_plot
